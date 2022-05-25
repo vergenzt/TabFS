@@ -6,8 +6,14 @@
   "version": "1.0",
 
   "permissions": [
-    "tabs", "tabCapture", "debugger", "nativeMessaging", "management",
+    "bookmarks",
+    "debugger",
+    "management",
+    "nativeMessaging",
+    "tabCapture",
+    "tabs",
     "unlimitedStorage",
+    "webNavigation",
     "<all_urls>"
   ],
 

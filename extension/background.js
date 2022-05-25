@@ -344,6 +344,34 @@ Routes["/tabs/by-id"] = {
       buf => ({ active: buf.startsWith("true") })
     )
   };
+
+  Routes["/tabs/by-id/#TAB_ID/frames"] = {
+    description: `Active frames within the tab; each subfolder is the ID of one frame.`,
+    usage: 'ls $0',
+    async readdir({ tabId }) {
+      const frames = await browser.webNavigation.getAllFrames({ tabId });
+      return { entries: [".", "..", ...frames.map(({ frameId }) => frameId)] };
+    }
+  };
+
+  Routes["/tabs/by-id/#TAB_ID/frames/#FRAME_ID/url.txt"] = makeRouteWithContents(
+    async ({ tabId, frameId }) => (await browser.webNavigation.getFrame({ tabId, frameId })).url + '\n'
+  );
+
+  Routes["/tabs/by-id/#TAB_ID/frames/#FRAME_ID/parent"] = {
+    async readlink({ tabId, frameId }) {
+      let frame = await browser.webNavigation.getFrame({ tabId, frameId });
+      return { buf: '../' + frame.parentFrameId };
+    }
+  };
+
+  Routes["/tabs/by-id/#TAB_ID/frames/#FRAME_ID/eval/:CODE"] = {
+    ...makeRouteWithContents(async ({tabId, frameId, code }) => {
+      const [ result ] = await browser.tabs.executeScript(tabId, { frameId, code });
+      return new String(result) + '\n';
+    })
+  };
+
 })();
 function createWritableDirectory() {
   // Returns a 'writable directory' object, which represents a
@@ -388,7 +416,6 @@ function createWritableDirectory() {
   };
 }
 
-
 (function() {
   const evals = createWritableDirectory();
   Routes["/tabs/by-id/#TAB_ID/evals"] = {
@@ -407,7 +434,7 @@ function createWritableDirectory() {
       const code = evals.directory[req.path];
       const allFrames = req.path.endsWith('.all-frames.js');
       // TODO: return other results beyond [0] (when all-frames is on)
-      const result = (await browser.tabs.executeScript(req.tabId, {code, allFrames}))[0];
+      const result = await browser.tabs.executeScript(req.tabId, {code, allFrames});
       evals.directory[req.path + '.result'] = JSON.stringify(result) + '\n';
       return ret;
     }
@@ -625,6 +652,17 @@ Routes["/tabs/by-id/#TAB_ID/inputs/:INPUT_ID.txt"] = makeRouteWithContents(async
   const code = `document.getElementById('${inputId}').value = unescape('${escape(buf)}')`;
   await browser.tabs.executeScript(tabId, {code});
 });
+Routes["/tabs/by-id/#TAB_ID/inputs/:INPUT_ID.txt"] = makeRouteWithContents(async ({tabId, inputId}) => {
+  const code = `document.getElementById('${inputId}').value`;
+  const inputValue = (await browser.tabs.executeScript(tabId, {code}))[0];
+  if (inputValue === null) { throw new UnixError(unix.ENOENT); } /* FIXME: hack to deal with if inputId isn't valid */
+  return inputValue;
+
+}, async ({tabId, inputId}, buf) => {
+  const code = `document.getElementById('${inputId}').value = unescape('${escape(buf)}')`;
+  await browser.tabs.executeScript(tabId, {code});
+});
+
 
 Routes["/windows"] = {
   async readdir() {
@@ -793,8 +831,9 @@ Routes["/runtime/routes.html"] = makeRouteWithContents(async () => {
 });
 
 
-Routes["/tabs.json"]    = makeRouteWithContents(async () => JSON.stringify(await browser.tabs.query({})));
-Routes["/windows.json"] = makeRouteWithContents(async () => JSON.stringify(await browser.windows.getAll({ populate: true })));
+Routes["/tabs.json"]      = makeRouteWithContents(async () => JSON.stringify(await browser.tabs.query({})));
+Routes["/windows.json"]   = makeRouteWithContents(async () => JSON.stringify(await browser.windows.getAll({ populate: true })));
+Routes["/bookmarks.json"] = makeRouteWithContents(async () => JSON.stringify(await browser.bookmarks.getTree()));
 
 
 // Ensure that there are routes for all ancestors. This algorithm is
