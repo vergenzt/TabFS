@@ -332,6 +332,11 @@ Routes["/tabs/by-id"] = {
     usage: 'cat $0',
     ...routeFromScript(`document.body.innerHTML`)
   };
+  Routes["/tabs/by-id/#TAB_ID/document.html"] = {
+    description: `Text file containing the full document HTML of this tab.`,
+    usage: 'cat $0',
+    ...routeFromScript(`document.documentElement.innerHTML`)
+  };
 
   Routes["/tabs/by-id/#TAB_ID/active"] = {
     description: 'Text file containing `true` or `false` depending on whether this tab is active in its window.',
