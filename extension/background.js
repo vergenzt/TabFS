@@ -163,7 +163,6 @@ const makeRouteWithContents = (function() {
 })();
 
 Routes["/tabs.json"]       = makeRouteWithContents(async () => JSON.stringify(await browser.tabs.query()));
-Routes["/tab-groups.json"] = makeRouteWithContents(async () => JSON.stringify(await browser.tabGroups.query()));
 Routes["/windows.json"]    = makeRouteWithContents(async () => JSON.stringify(await browser.windows.getAll({ populate: true })));
 
 // Helper function: returns a route handler for `path` based on all
